@@ -1,52 +1,57 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { AxiosResponse } from 'axios';
+import { Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { getDataCenterUrl } from 'src/utils';
-import { CreateTaskTimeLog } from './dto/create-task-timelog.dto';
-import { cloud } from '../conf';
 import fetch from 'node-fetch';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PortalsService {
   constructor(
-    private readonly httpService: HttpService,
-    // private readonly configService: ConfigService
     ) {}
 
   async addTimeLogForTasks(req) {
     const { taskId } = req.params;
-    const { duration, billable, description } = req.body;
-    const baseUrl = 'https://app.asana.com/api/1.0';
+    const { duration, status, description } = req.body;
+
+    console.log('add time log', duration, status, description);
+    const base_url = 'https://app.asana.com/api/1.0';
     const token = req.headers['authorization'];
-      const url = `${baseUrl}/tasks/${taskId}/time_tracking_entries`;
-      console.log('token', token);
-      const headers = {
-        Authorization: token,
-        'Content-Type': 'application/json',
-      };
-      const data = {
-        data: {
-          duration_minutes: duration
-        },
-      };
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) {
-          return null;
-          throw new Error('Failed to add time to task');
-        }
-        return await response.json();
-      }
-      catch (error) {
-        console.error(error);
-        return null;
-        throw new Error('Failed to add time to task');
-      }
+    const time_url = `${base_url}/tasks/${taskId}/time_tracking_entries`;
+    const section_url = `${base_url}/sections/${status}/addTask`
+    console.log('token', token);
+    
+    const headers = {
+      Authorization: token,
+      'Content-Type': 'application/json',
+    };
+    const data = {
+      data: {
+        duration_minutes: duration
+      },
+    };
+    try {
+      const response = await fetch(time_url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      const res = await fetch(section_url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          data: {
+            task: taskId
+          }
+        })
+      });
+      const json_status = await res.json();
+      const json_time = await response.json();
+      return {json_time, json_status};
+    }
+    catch (error) {
+      console.error(error);
+      return null;
+    }
   }
 
   async getAllWorkspaces(req: any) {
@@ -63,18 +68,45 @@ export class PortalsService {
     return data;
   }
 
-  async getAllTasksOfLists(req: any) {
-    const baseUrl = 'https://app.asana.com/api/1.0';
-
+  async getAllSections(req: any) {
     const { projectId } = req.params;
-
-    const url = `${baseUrl}/tasks?project=${projectId}`;
+    console.log('get all sections projectId', projectId);
+    const url = `https://app.asana.com/api/1.0/projects/${projectId}/sections`;
     const headers = {
-      Authorization: `Bearer ${req.query.access_token}`,
+      Authorization: `Bearer ${req.query.access_token}` 
     };
+
     const response = await fetch(url, { headers });
-    const json = await response.json();
-    return json.data;
+    const data = await response.json();
+    console.log('get all sections data', data);
+    return data;
+  }
+
+  async getAllTasks(req: any) {
+    if (!req.query.ids) {
+      return;
+    }
+    const data : any = [];
+    const headers = {
+      Authorization: `Bearer ${req.query.access_token}`
+    }
+    const fields = 'name,completed,due_on,actual_time_minutes';
+    for (let item of req.query.ids) {
+        const url = `https://app.asana.com/api/1.0/sections/${item.id}/tasks?opt_fields=${fields}`
+        const params = {
+          opt_fields: fields
+        }
+        const response = await fetch(url, {
+          headers: headers,
+        });
+        const json = await response.json();
+        const temp = {
+          list_name: item.name,
+          card: json.data
+        }
+        data.push(temp);
+    }
+    return data;
   }
 
   async getAllProjects(req: any) {
@@ -95,7 +127,7 @@ export class PortalsService {
       }
       data.push(temp);
     }
-
+    
     return data;
   }
 }

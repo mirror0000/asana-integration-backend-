@@ -17,24 +17,23 @@ export class PortalsController {
   }
 
   @Get('projects')
-  async getAllListsOfWorkspace(@Req() req) {
+  async getProjects(@Req() req) {
     const projects: any = await this.portalsService.getAllProjects(req);
     console.log('projects', projects);
     return projects;
   }
 
-  @Get(':projectId/tasks')
-  async getAllTasksOfLists(@Req() req) {
+  @Get(':projectId/sections')
+  async getSections(@Req() req) {
+    const sections: any = await this.portalsService.getAllSections(req);
+    console.log(sections);
+    return sections;
+  }
+
+  @Get('tasks')
+  async getTasks(@Req() req) {
     try {
-      const tasks: any = await this.portalsService.getAllTasksOfLists(req);
-      // const issues = tasks?.map(item => ({ 
-      //   id: item.id,
-      //   name: item.fields.summary, 
-      //   key: item.key, 
-      //   status: item.fields.status.name, 
-      //   createdPerson: item.fields.creator.displayName, 
-      //   priority: item.fields.priority.id 
-      // }));
+      const tasks: any = await this.portalsService.getAllTasks(req);
       console.log('tasks', tasks);
       return tasks;
     }
